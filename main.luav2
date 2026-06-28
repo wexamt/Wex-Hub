@@ -840,3 +840,40 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
+-- [[ 👁️ ESP TOGGLE KISAYOL SİSTEMİ (Ctrl + E) ]] --
+
+-- ESP durumunu topluca değiştiren ve arayüzü güncelleyen fonksiyon
+local function ToggleAllESP(state)
+    -- 1. Global değişkenleri güncelle
+    _G.HighlightEnabled = state
+    _G.TracersEnabled = state
+    _G.HPEnabled = state
+
+    -- 2. Arayüzdeki (GUI) butonların görsel durumlarını senkronize et
+    -- UI kütüphanendeki activeToggles tablosunu kullanarak buton animasyonlarını tetikler
+    if activeToggles then
+        if activeToggles["Highlight ESP"] then
+            activeToggles["Highlight ESP"].SetState(state)
+        end
+        if activeToggles["Tracers"] then
+            activeToggles["Tracers"].SetState(state)
+        end
+        if activeToggles["Show HP"] then
+            activeToggles["Show HP"].SetState(state)
+        end
+    end
+end
+
+-- Ctrl + E Basıldığını Algılayan Giriş Motoru
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end -- Sohbet kutusu (chat) açıkken çalışmaması için
+    
+    -- Sol veya Sağ Kontrol tuşu basılıyken E tuşuna basılırsa
+    if (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)) and input.KeyCode == Enum.KeyCode.E then
+        -- Mevcut durumlardan birini tersine çevirerek yeni durumu belirle (Toggle mantığı)
+        local newState = not _G.HighlightEnabled
+        
+        -- Tüm ESP sistemini bu yeni duruma geçir
+        ToggleAllESP(newState)
+    end
+end)
