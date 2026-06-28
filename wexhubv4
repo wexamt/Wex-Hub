@@ -1,0 +1,956 @@
+-- [[ ⚡ WEX HUB | v2.5 - CUSTOM TAB SYSTEM & SLIDERS ]] --
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local LP = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- [[ 1. ESKİ GUI TEMİZLİĞİ ]] --
+if CoreGui:FindFirstChild("WexHub") then
+    CoreGui.WexHub_v25:Destroy()
+end
+
+-- [[ 2. AYARLAR VE GLOBAL DEĞİŞKENLER ]] --
+_G.AimbotEnabled = false
+_G.AimbotSmoothness = 0.5
+_G.AimbotFOV = 150
+_G.ShowFOV = false
+_G.AimPart = "Head"
+_G.TeamCheck = true 
+
+_G.ESP_Enabled = false
+_G.Tracers_Enabled = false
+_G.ShowHP = false
+_G.ESP_Color = Color3.fromRGB(255, 0, 0) -- Varsayılan ESP Kırmızı
+
+_G.SpinBot = false
+_G.SpinSpeed = 50
+_G.InfJump = false
+_G.ClickTP = false
+_G.AutoExecute = false
+
+-- FOV Çemberi
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(0, 255, 255)
+FOVCircle.Transparency = 0.7
+FOVCircle.Visible = false
+
+-- [[ 3. SIFIRDAN SEKME (TAB) SİSTEMLİ GUI ]] --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "WexHub"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
+
+-- Ana Panel
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 450, 0, 320)
+MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 8)
+MainCorner.Parent = MainFrame
+
+-- Sol Sekme Çubuğu (Sidebar)
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 130, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = MainFrame
+
+local SideCorner = Instance.new("UICorner")
+SideCorner.CornerRadius = UDim.new(0, 8)
+SideCorner.Parent = Sidebar
+
+-- Logo / Başlık
+local LogoLabel = Instance.new("TextLabel")
+LogoLabel.Size = UDim2.new(1, 0, 0, 40)
+LogoLabel.BackgroundTransparency = 1
+LogoLabel.Text = "⚡ WEX HUB v2.5"
+LogoLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+LogoLabel.Font = Enum.Font.GothamBold
+LogoLabel.TextSize = 14
+LogoLabel.Parent = Sidebar
+
+-- Sekme Buton Listesi
+local TabList = Instance.new("Frame")
+TabList.Position = UDim2.new(0, 5, 0, 45)
+TabList.Size = UDim2.new(1, -10, 1, -80)
+TabList.BackgroundTransparency = 1
+TabList.Parent = Sidebar
+
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.Parent = TabList
+TabLayout.Padding = UDim.new(0, 4)
+
+-- Sağ İçerik Alanı (Content Area)
+local ContentArea = Instance.new("Frame")
+ContentArea.Position = UDim2.new(0, 140, 0, 10)
+ContentArea.Size = UDim2.new(1, -150, 1, -20)
+ContentArea.BackgroundTransparency = 1
+ContentArea.Parent = MainFrame
+
+-- Bilgi Alt Yazısı
+local BindLabel = Instance.new("TextLabel")
+BindLabel.Size = UDim2.new(1, 0, 0, 25)
+BindLabel.Position = UDim2.new(0, 0, 1, -30)
+BindLabel.BackgroundTransparency = 1
+BindLabel.Text = "[G] Tuşu Aç/Kapa"
+BindLabel.TextColor3 = Color3.fromRGB(100, 100, 110)
+BindLabel.Font = Enum.Font.Gotham
+BindLabel.TextSize = 11
+BindLabel.Parent = Sidebar
+
+-- [[ 🛠️ SEKME VE ÖGE YARATMA SİSTEMİ ]] --
+local tabs = {}
+local currentTab = nil
+
+local function CreateTab(tabName)
+    local TabPage = Instance.new("ScrollingFrame")
+    TabPage.Size = UDim2.new(1, 0, 1, 0)
+    TabPage.BackgroundTransparency = 1
+    TabPage.BorderSizePixel = 0
+    TabPage.ScrollBarThickness = 2
+    TabPage.Visible = false
+    TabPage.Parent = ContentArea
+    
+    local PageLayout = Instance.new("UIListLayout")
+    PageLayout.Parent = TabPage
+    PageLayout.Padding = UDim.new(0, 6)
+
+    local TabButton = Instance.new("TextButton")
+    TabButton.Size = UDim2.new(1, 0, 0, 32)
+    TabButton.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    TabButton.Text = tabName
+    TabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TabButton.Font = Enum.Font.GothamMedium
+    TabButton.TextSize = 12
+    TabButton.BorderSizePixel = 0
+    TabButton.Parent = TabList
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 4)
+    btnCorner.Parent = TabButton
+
+    TabButton.MouseButton1Click:Connect(function()
+        for _, t in pairs(tabs) do
+            t.Page.Visible = false
+            t.Btn.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+            t.Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        end
+        TabPage.Visible = true
+        TabButton.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+        TabButton.TextColor3 = Color3.fromRGB(15, 15, 20)
+    end)
+
+    tabs[tabName] = {Page = TabPage, Btn = TabButton}
+    if not currentTab then
+        TabPage.Visible = true
+        TabButton.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+        TabButton.TextColor3 = Color3.fromRGB(15, 15, 20)
+        currentTab = tabName
+    end
+    
+    return TabPage
+end
+
+local activeToggles = {}
+
+-- 1. Toggle Elementi Yapıcı
+local function AddToggle(parent, name, default, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, -5, 0, 35)
+    Frame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = parent
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 5)
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.7, 0, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = Color3.fromRGB(230, 230, 230)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 50, 0, 22)
+    Button.Position = UDim2.new(1, -60, 0, 6)
+    Button.BackgroundColor3 = default and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(45, 45, 55)
+    Button.Text = default and "ON" or "OFF"
+    Button.TextColor3 = default and Color3.fromRGB(10, 10, 15) or Color3.fromRGB(180, 180, 180)
+    Button.Font = Enum.Font.GothamBold
+    Button.TextSize = 10
+    Button.Parent = Frame
+    Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 4)
+
+    local active = default
+    
+    local function updateVisuals(state)
+        Button.Text = state and "ON" or "OFF"
+        local targetBg = state and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(45, 45, 55)
+        local targetText = state and Color3.fromRGB(10, 10, 15) or Color3.fromRGB(180, 180, 180)
+        TweenService:Create(Button, TweenInfo.new(0.15), {BackgroundColor3 = targetBg, TextColor3 = targetText}):Play()
+    end
+
+    Button.MouseButton1Click:Connect(function()
+        active = not active
+        callback(active)
+        updateVisuals(active)
+    end)
+    
+    activeToggles[name] = {
+        SetState = function(newState)
+            active = newState
+            updateVisuals(newState)
+        end
+    }
+end
+
+-- 2. Slider (Ayar Barı) Elementi Yapıcı
+local function AddSlider(parent, name, min, max, default, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, -5, 0, 45)
+    Frame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+    Frame.Parent = parent
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 5)
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.6, 0, 0, 20)
+    Label.Position = UDim2.new(0, 10, 0, 3)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    local ValueLabel = Instance.new("TextLabel")
+    ValueLabel.Size = UDim2.new(0.3, 0, 0, 20)
+    ValueLabel.Position = UDim2.new(1, -105, 0, 3)
+    ValueLabel.BackgroundTransparency = 1
+    ValueLabel.Text = tostring(default)
+    ValueLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+    ValueLabel.Font = Enum.Font.GothamBold
+    ValueLabel.TextSize = 12
+    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    ValueLabel.Parent = Frame
+
+    local SliderBtn = Instance.new("TextButton")
+    SliderBtn.Size = UDim2.new(1, -20, 0, 6)
+    SliderBtn.Position = UDim2.new(0, 10, 0, 28)
+    SliderBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    SliderBtn.Text = ""
+    SliderBtn.Parent = Frame
+    Instance.new("UICorner", SliderBtn).CornerRadius = UDim.new(0, 3)
+
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Parent = SliderBtn
+    Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(0, 3)
+
+    local dragging = false
+    local function update()
+        local mousePos = UserInputService:GetMouseLocation().X
+        local btnPos = SliderBtn.AbsolutePosition.X
+        local btnSize = SliderBtn.AbsoluteSize.X
+        local percentage = math.clamp((mousePos - btnPos) / btnSize, 0, 1)
+        SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+        local value = math.floor(min + (max - min) * percentage)
+        ValueLabel.Text = tostring(value)
+        callback(value)
+    end
+
+    SliderBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then update() end
+    end)
+end
+
+-- [[ 🗂️ SEKMELERİ VE ÖZELLİKLERİ YAPILANDIRMA ]] --
+
+local Tab1 = CreateTab("🎯 Combat")
+AddToggle(Tab1, "Aimbot Aktif (Sağ Tık)", false, function(v) _G.AimbotEnabled = v end)
+AddToggle(Tab1, "Team Check (Sadece Rakip)", true, function(v) _G.TeamCheck = v end)
+AddToggle(Tab1, "FOV Çemberini Göster", false, function(v) _G.ShowFOV = v end)
+AddSlider(Tab1, "FOV Çember Boyutu", 50, 600, 150, function(v) _G.AimbotFOV = v end)
+
+local Tab2 = CreateTab("👁️ Visual")
+AddToggle(Tab2, "Player ESP (Highlight)", false, function(v) _G.ESP_Enabled = v end)
+AddToggle(Tab2, "Tracers (Çizgiler)", false, function(v) _G.Tracers_Enabled = v end)
+AddToggle(Tab2, "Oyuncu HP", false, function(v) _G.ShowHP = v end)
+
+-- ÖZEL RENK SEÇİCİ BUTON (Visual Sekmesi)
+local ColorColors = {Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255), Color3.fromRGB(255,255,0), Color3.fromRGB(255,0,255)}
+local ColorNames = {"Kırmızı", "Yeşil", "Mavi", "Sarı", "Pembe"}
+local colorIndex = 1
+
+local ColorFrame = Instance.new("Frame")
+ColorFrame.Size = UDim2.new(1, -5, 0, 35)
+ColorFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+ColorFrame.Parent = Tab2
+Instance.new("UICorner", ColorFrame).CornerRadius = UDim.new(0, 5)
+
+local ColorLabel = Instance.new("TextLabel")
+ColorLabel.Size = UDim2.new(0.6, 0, 1, 0)
+ColorLabel.Position = UDim2.new(0, 10, 0, 0)
+ColorLabel.BackgroundTransparency = 1
+ColorLabel.Text = "ESP / Tracer Rengi"
+ColorLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+ColorLabel.Font = Enum.Font.Gotham
+ColorLabel.TextSize = 13
+ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+ColorLabel.Parent = ColorFrame
+
+local ColorBtn = Instance.new("TextButton")
+ColorBtn.Size = UDim2.new(0, 80, 0, 22)
+ColorBtn.Position = UDim2.new(1, -90, 0, 6)
+ColorBtn.BackgroundColor3 = ColorColors[colorIndex]
+ColorBtn.Text = ColorNames[colorIndex]
+ColorBtn.TextColor3 = Color3.fromRGB(255,255,255)
+ColorBtn.Font = Enum.Font.GothamBold
+ColorBtn.TextSize = 11
+ColorBtn.Parent = ColorFrame
+Instance.new("UICorner", ColorBtn).CornerRadius = UDim.new(0, 4)
+
+ColorBtn.MouseButton1Click:Connect(function()
+    colorIndex = colorIndex + 1
+    if colorIndex > #ColorColors then colorIndex = 1 end
+    _G.ESP_Color = ColorColors[colorIndex]
+    ColorBtn.Text = ColorNames[colorIndex]
+    ColorBtn.BackgroundColor3 = ColorColors[colorIndex]
+end)
+
+
+local Tab3 = CreateTab("🌪️ Knix")
+AddToggle(Tab3, "Infinite Jump", false, function(v) _G.InfJump = v end)
+AddToggle(Tab3, "Click TP (Ctrl+Sol Tık)", false, function(v) _G.ClickTP = v end)
+AddToggle(Tab3, "Spin Bot", false, function(v) _G.SpinBot = v end)
+AddSlider(Tab3, "Spin Bot Hızı", 10, 300, 50, function(v) _G.SpinSpeed = v end)
+
+-- [[ ⚙️ SETTINGS / REAL AUTO-EXECUTE ALANI ]] --
+local Tab4 = CreateTab("⚙️ Settings")
+local autoexec_filename = "autoexec/WexHub_AutoExec.lua"
+
+-- Başlangıçta dosya var mı kontrolü
+pcall(function()
+    if isfile and isfile(autoexec_filename) then
+        _G.AutoExecute = true
+    end
+end)
+
+AddToggle(Tab4, "Auto Execute (Xeno)", _G.AutoExecute, function(v)
+    _G.AutoExecute = v
+    if _G.AutoExecute then
+        pcall(function()
+            if writefile then
+                if makefolder then pcall(function() makefolder("autoexec") end) end
+                
+                -- Raw GitHub linki veya pastebin linkini buradaki adrese koyabilirsin.
+                -- Aşağıdaki hazır string, Xeno her açıldığında ana scripti otomatik çekecektir.
+                local scriptRawPayload = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/YazdiginScriptLinkiBuraya", true))()]]
+                writefile(autoexec_filename, scriptRawPayload)
+            end
+        end)
+    else
+        pcall(function()
+            if delfile then 
+                delfile(autoexec_filename)
+            end
+        end)
+    end
+end)
+
+if activeToggles["Auto Execute (Xeno)"] then
+    activeToggles["Auto Execute (Xeno)"].SetState(_G.AutoExecute)
+end
+
+-- [[ ⌨️ G TUŞU VE KISAYOL BIND SİSTEMLERİ ]] --
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.G then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+    
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if input.KeyCode == Enum.KeyCode.R then
+            _G.AimbotEnabled = not _G.AimbotEnabled
+            if activeToggles["Aimbot Aktif (Sağ Tık)"] then
+                activeToggles["Aimbot Aktif (Sağ Tık)"].SetState(_G.AimbotEnabled)
+            end
+        elseif input.KeyCode == Enum.KeyCode.F then
+            _G.ShowFOV = not _G.ShowFOV
+            if activeToggles["FOV Çemberini Göster"] then
+                activeToggles["FOV Çemberini Göster"].SetState(_G.ShowFOV)
+            end
+        end
+    end
+end)
+
+
+-- [[ 🚀 MOTOR VE FİLTRE SİSTEMLERİ (FIXED TEAM CHECK) ]] --
+local function isEnemy(player)
+    if not _G.TeamCheck then return true end
+    
+    -- Kesin ve Stabil Team Kontrolü (Hatalar tamamen giderildi)
+    if player and LP and player ~= LP then
+        if player.Team ~= LP.Team then
+            return true
+        elseif player.Team == LP.Team and tostring(player.Team) == "Neutral" then
+            -- Eğer Rivals'da herkes tek ise (Neutral durumunda) herkes düşmandır
+            return true
+        end
+    end
+    return false
+end
+
+local function GetClosestPlayer()
+    local target = nil
+    local dist = _G.AimbotFOV
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LP and v.Character and v.Character:FindFirstChild(_G.AimPart) then
+            if isEnemy(v) then
+                local hum = v.Character:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local pos, onScreen = Camera:WorldToViewportPoint(v.Character[_G.AimPart].Position)
+                    if onScreen then
+                        local magnitude = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                        if magnitude < dist then
+                            target = v
+                            dist = magnitude
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return target
+end
+
+-- [[ 🔄 ANA DÖNGÜ ]] --
+local tracers = {}
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Visible = _G.ShowFOV
+    FOVCircle.Radius = _G.AimbotFOV
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    -- SpinBot
+    if _G.SpinBot and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        LP.Character.HumanoidRootPart.CFrame = LP.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(_G.SpinSpeed), 0)
+    end
+
+    -- Aimbot
+    if _G.AimbotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = GetClosestPlayer()
+        if target and target.Character then
+            local targetPos = Camera:WorldToViewportPoint(target.Character[_G.AimPart].Position)
+            local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            mousemoverel((targetPos.X - mousePos.X) * _G.AimbotSmoothness, (targetPos.Y - mousePos.Y) * _G.AimbotSmoothness)
+        end
+    end
+
+    -- Visuals (ESP, HP, Tracers)
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LP then
+            local char = v.Character
+            if char then
+                local isEnem = isEnemy(v)
+                
+                -- Highlight ESP
+                local hl = char:FindFirstChild("WexHL")
+                if _G.ESP_Enabled and isEnem then
+                    if not hl then
+                        hl = Instance.new("Highlight", char)
+                        hl.Name = "WexHL"
+                        hl.FillTransparency = 0.5
+                    end
+                    hl.FillColor = _G.ESP_Color
+                elseif hl then hl:Destroy() end
+
+                -- HP Tag
+                local head = char:FindFirstChild("Head")
+                if head then
+                    local tag = head:FindFirstChild("WexHP")
+                    if _G.ShowHP and isEnem then
+                        if not tag then
+                            tag = Instance.new("BillboardGui", head)
+                            tag.Name = "WexHP"
+                            tag.Size = UDim2.new(0, 50, 0, 20)
+                            tag.AlwaysOnTop = true
+                            tag.ExtentsOffset = Vector3.new(0, 3, 0)
+                            local l = Instance.new("TextLabel", tag)
+                            l.Name = "Label"
+                            l.BackgroundTransparency = 1
+                            l.Size = UDim2.new(1, 0, 1, 0)
+                            l.Font = Enum.Font.SourceSansBold
+                            l.TextSize = 14
+                        end
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            tag.Label.Text = math.floor(hum.Health) .. " HP"
+                            tag.Label.TextColor3 = _G.ESP_Color
+                        end
+                    elseif tag then tag:Destroy() end
+                end
+
+                -- Tracers
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    if _G.Tracers_Enabled and isEnem and onScreen then
+                        local tr = tracers[v] or Drawing.new("Line")
+                        tracers[v] = tr
+                        tr.Visible = true
+                        tr.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        tr.To = Vector2.new(pos.X, pos.Y)
+                        tr.Color = _G.ESP_Color
+                    elseif tracers[v] then tracers[v].Visible = false end
+                end
+            end
+        end
+    end
+end)
+
+-- Jump & TP Bağlantıları
+UserInputService.JumpRequest:Connect(function()
+    if _G.InfJump and LP.Character and LP.Character:FindFirstChild("Humanoid") then
+        LP.Character.Humanoid:ChangeState("Jumping")
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if _G.ClickTP and input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        local mouse = LP:GetMouse()
+        if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            LP.Character.HumanoidRootPart.CFrame = CFrame.new(mouse.Hit.p + Vector3.new(0, 3, 0))
+        end
+    end
+end)
+
+-- [[ ✈️ MOVEMENT & FLY SİSTEMİ ]] --
+local Tab5 = CreateTab("✈️ Movement")
+
+_G.FlyEnabled = false
+_G.FlySpeed = 50
+
+-- Uçma Özelliği Kontrolü
+AddToggle(Tab5, "Fly (Uçma Modu)", false, function(v)
+    _G.FlyEnabled = v
+    
+    local torso = LP.Character and (LP.Character:FindFirstChild("LowerTorso") or LP.Character:FindFirstChild("Torso") or LP.Character:FindFirstChild("HumanoidRootPart"))
+    if not v and torso then
+        -- Uçma kapatıldığında velocity (hız) değerlerini sıfırla ki havada asılı kalmasın
+        for _, obj in pairs(torso:GetChildren()) do
+            if obj:IsA("BodyVelocity") or obj:IsA("BodyGyro") then
+                obj:Destroy()
+            end
+        end
+        if LP.Character:FindFirstChildOfClass("Humanoid") then
+            LP.Character:FindFirstChildOfClass("Humanoid").PlatformStand = false
+        end
+    end
+end)
+
+-- Uçma Hızı Ayarı
+AddSlider(Tab5, "Uçma Hızı", 10, 250, 50, function(v)
+    _G.FlySpeed = v
+end)
+
+-- [[ UÇMA MOTORU (RENDERSTEPPED BAĞLANTISI) ]] --
+local bv, bg
+RunService.RenderStepped:Connect(function()
+    if _G.FlyEnabled and LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
+        local humanoid = LP.Character:FindFirstChildOfClass("Humanoid")
+        local torso = LP.Character:FindFirstChild("LowerTorso") or LP.Character:FindFirstChild("Torso") or LP.Character:FindFirstChild("HumanoidRootPart")
+        
+        if torso then
+            humanoid.PlatformStand = true
+            
+            -- BodyVelocity kontrolü ve oluşturulması
+            if not torso:FindFirstChild("WexFlyVelocity") then
+                bv = Instance.new("BodyVelocity")
+                bv.Name = "WexFlyVelocity"
+                bv.maxForce = Vector3.new(1e5, 1e5, 1e5)
+                bv.Parent = torso
+            else
+                bv = torso.WexFlyVelocity
+            end
+            
+            -- BodyGyro kontrolü (Karakterin dik durması ve kameraya dönmesi için)
+            if not torso:FindFirstChild("WexFlyGyro") then
+                bg = Instance.new("BodyGyro")
+                bg.Name = "WexFlyGyro"
+                bg.maxTorque = Vector3.new(1e5, 1e5, 1e5)
+                bg.cframe = torso.CFrame
+                bg.Parent = torso
+            else
+                bg = torso.WexFlyGyro
+            end
+            
+            -- Yön Hesaplama (Kamera açısına göre)
+            local direction = Vector3.new(0, 0, 0)
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                direction = direction + Camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                direction = direction - Camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                direction = direction - Camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                direction = direction + Camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                direction = direction + Vector3.new(0, 1, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                direction = direction - Vector3.new(0, 1, 0)
+            end
+            
+            -- Hızı ve Bakış Açısını Uygula
+            bv.velocity = direction.Unit * _G.FlySpeed
+            if direction == Vector3.new(0,0,0) then
+                bv.velocity = Vector3.new(0, 0, 0) -- Tuşlara basılmıyorsa havada sabit tut
+            end
+            bg.cframe = Camera.CFrame
+        end
+    end
+end)
+
+-- [[ 🎯 GELİŞMİŞ AIMBOT AYARLARI & ISKA İHTİMALLİ LEGITBOT SİSTEMİ ]] --
+
+_G.LegitBotEnabled = false
+_G.MissChance = 30 -- Varsayılan %30 ıskalama ihtimali
+local AimPartsList = {"Head", "UpperTorso", "LeftUpperLeg"}
+local AimPartNames = {Head = "Kafa (Head)", UpperTorso = "Gövde (Torso)", LeftUpperLeg = "Bacak (Leg)"}
+local partIndex = 1
+local currentTargetIsMiss = false -- Mevcut hedef için ıskalama durumu
+
+-- 1. Hedef Bölge Seçici Buton (GUI Elementi)
+local PartFrame = Instance.new("Frame")
+PartFrame.Size = UDim2.new(1, -5, 0, 35)
+PartFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+PartFrame.Parent = Tab1
+Instance.new("UICorner", PartFrame).CornerRadius = UDim.new(0, 5)
+
+local PartLabel = Instance.new("TextLabel")
+PartLabel.Size = UDim2.new(0.5, 0, 1, 0)
+PartLabel.Position = UDim2.new(0, 10, 0, 0)
+PartLabel.BackgroundTransparency = 1
+PartLabel.Text = "Aimbot Hedef Bölgesi"
+PartLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+PartLabel.Font = Enum.Font.Gotham
+PartLabel.TextSize = 13
+PartLabel.TextXAlignment = Enum.TextXAlignment.Left
+PartLabel.Parent = PartFrame
+
+local PartBtn = Instance.new("TextButton")
+PartBtn.Size = UDim2.new(0, 120, 0, 22)
+PartBtn.Position = UDim2.new(1, -130, 0, 6)
+PartBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+PartBtn.Text = AimPartNames[_G.AimPart] or "Kafa (Head)"
+PartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PartBtn.Font = Enum.Font.GothamBold
+PartBtn.TextSize = 11
+PartBtn.Parent = PartFrame
+Instance.new("UICorner", PartBtn).CornerRadius = UDim.new(0, 4)
+
+PartBtn.MouseButton1Click:Connect(function()
+    if _G.LegitBotEnabled then return end 
+    partIndex = partIndex + 1
+    if partIndex > #AimPartsList then partIndex = 1 end
+    _G.AimPart = AimPartsList[partIndex]
+    PartBtn.Text = AimPartNames[_G.AimPart]
+end)
+
+-- 2. LegitBot Toggle Elementi
+AddToggle(Tab1, "LegitBot (Iska İhtimalli)", false, function(v)
+    _G.LegitBotEnabled = v
+    if v then
+        PartBtn.Text = "Legit Aktif"
+        PartBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+        PartBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
+    else
+        partIndex = 1
+        _G.AimPart = "Head"
+        PartBtn.Text = AimPartNames[_G.AimPart]
+        PartBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        PartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+-- 3. Iska İhtimali Slider Ayarı (Combat Sekmesine Eklenir)
+AddSlider(Tab1, "Iska (Miss) İhtimali %", 0, 100, 30, function(v)
+    _G.MissChance = v
+end)
+
+-- Sağ Tıka basıldığında o anki kilitlenme için ıskalama şansını hesaplar
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        if _G.LegitBotEnabled then
+            -- Şans hesaplama
+            local chance = math.random(1, 100)
+            if chance <= _G.MissChance then
+                currentTargetIsMiss = true -- Bu sağ tık basılı tutma boyunca ıskalayacak
+            else
+                currentTargetIsMiss = false -- İsabet edecek
+            end
+            
+            -- Doğal görünüm için kemiği de rastgele karıştır
+            if math.random(1, 10) <= 4 then
+                _G.AimPart = "Head"
+            else
+                _G.AimPart = "UpperTorso"
+            end
+        else
+            currentTargetIsMiss = false
+        end
+    end
+end)
+
+-- [[ 🌪️ GELİŞMİŞ HAREKET VE LOKAL MODLAR ]] --
+
+_G.NoclipEnabled = false
+_G.WexSpecial = false
+local SpecialTarget = nil
+
+-- Smoothness Ayarını Combat Sekmesine Ekleme
+AddSlider(Tab1, "Aimbot Sertliği (1=Yumuşak, 10=Sert)", 1, 10, 5, function(v)
+    _G.AimbotSmoothness = v / 10
+end)
+
+-- Noclip Özelliğini Movement Sekmesine Ekleme
+AddToggle(Tab5, "Noclip (Duvarlardan Geçme)", false, function(v)
+    _G.NoclipEnabled = v
+end)
+
+-- Noclip Motoru
+RunService.Stepped:Connect(function()
+    if _G.NoclipEnabled and LP.Character then
+        for _, part in pairs(LP.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Wex's Special Aktivasyon Fonksiyonu
+local function ToggleWexSpecial(state)
+    _G.WexSpecial = state
+    if not state then
+        SpecialTarget = nil
+        if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = LP.Character.HumanoidRootPart
+            if hrp:FindFirstChild("WexSpecialVelocity") then hrp.WexSpecialVelocity:Destroy() end
+        end
+    end
+end
+
+AddToggle(Tab5, "Wex's Special (Ctrl + C)", false, function(v)
+    ToggleWexSpecial(v)
+end)
+
+-- Ctrl + C Kısayol Tuşu
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) and input.KeyCode == Enum.KeyCode.C then
+        local newState = not _G.WexSpecial
+        ToggleWexSpecial(newState)
+        if activeToggles["Wex's Special (Ctrl + C)"] then
+            activeToggles["Wex's Special (Ctrl + C)"].SetState(newState)
+        end
+    end
+end)
+
+-- [[ ÖZELLEŞTİRİLMİŞ ENTEGRE ANA MOTOR ]] --
+RunService.RenderStepped:Connect(function()
+    -- Wex's Special Mantığı
+    if _G.WexSpecial and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        local myHrp = LP.Character.HumanoidRootPart
+        
+        if not SpecialTarget or not SpecialTarget.Character or not SpecialTarget.Character:FindFirstChild("HumanoidRootPart") or (SpecialTarget.Character:FindFirstChildOfClass("Humanoid") and SpecialTarget.Character:FindFirstChildOfClass("Humanoid").Health <= 0) then
+            SpecialTarget = GetClosestPlayer()
+        end
+        
+        if SpecialTarget and SpecialTarget.Character and SpecialTarget.Character:FindFirstChild("HumanoidRootPart") then
+            local enemyHrp = SpecialTarget.Character.HumanoidRootPart
+            myHrp.CFrame = enemyHrp.CFrame * CFrame.new(0, 15, 0)
+            
+            if not myHrp:FindFirstChild("WexSpecialVelocity") then
+                local bv = Instance.new("BodyVelocity")
+                bv.Name = "WexSpecialVelocity"
+                bv.maxForce = Vector3.new(1e5, 1e5, 1e5)
+                bv.velocity = Vector3.new(0, 0, 0)
+                bv.Parent = myHrp
+            end
+            
+            local aimTargetPart = SpecialTarget.Character:FindFirstChild(_G.AimPart)
+            if aimTargetPart then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimTargetPart.Position)
+            end
+        end
+    end
+
+    -- Yenilenen Iska Mantıklı Aimbot Motoru
+    if _G.AimbotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = GetClosestPlayer()
+        if target and target.Character then
+            local targetPart = target.Character:FindFirstChild(_G.AimPart)
+            if targetPart then
+                local targetPos = Camera:WorldToViewportPoint(targetPart.Position)
+                local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                
+                -- Eğer o anki kilitlenme için ISKA durumu aktifse, hedef pozisyonuna sapma (offset) ekle
+                if _G.LegitBotEnabled and currentTargetIsMiss then
+                    -- Karakterin 4-7 birim sağına/soluna/yukarısına doğru nişangahı saptırır
+                    local offsetVector = Vector2.new(math.random(-45, 45), math.random(-45, 45))
+                    targetPos = Vector2.new(targetPos.X + offsetVector.X, targetPos.Y + offsetVector.Y)
+                end
+                
+                mousemoverel((targetPos.X - mousePos.X) * _G.AimbotSmoothness, (targetPos.Y - mousePos.Y) * _G.AimbotSmoothness)
+            end
+        end
+    end
+end)
+-- [[ 👁️ ESP TOGGLE KISAYOL SİSTEMİ (Ctrl + E) ]] --
+
+-- ESP durumunu topluca değiştiren ve arayüzü güncelleyen fonksiyon
+local function ToggleAllESP(state)
+    -- 1. Global değişkenleri güncelle
+    _G.HighlightEnabled = state
+    _G.TracersEnabled = state
+    _G.HPEnabled = state
+
+    -- 2. Arayüzdeki (GUI) butonların görsel durumlarını senkronize et
+    -- UI kütüphanendeki activeToggles tablosunu kullanarak buton animasyonlarını tetikler
+    if activeToggles then
+        if activeToggles["Highlight ESP"] then
+            activeToggles["Highlight ESP"].SetState(state)
+        end
+        if activeToggles["Tracers"] then
+            activeToggles["Tracers"].SetState(state)
+        end
+        if activeToggles["Show HP"] then
+            activeToggles["Show HP"].SetState(state)
+        end
+    end
+end
+
+-- Ctrl + E Basıldığını Algılayan Giriş Motoru
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end -- Sohbet kutusu (chat) açıkken çalışmaması için
+    
+    -- Sol veya Sağ Kontrol tuşu basılıyken E tuşuna basılırsa
+    if (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)) and input.KeyCode == Enum.KeyCode.E then
+        -- Mevcut durumlardan birini tersine çevirerek yeni durumu belirle (Toggle mantığı)
+        local newState = not _G.HighlightEnabled
+        
+        -- Tüm ESP sistemini bu yeni duruma geçir
+        ToggleAllESP(newState)
+    end
+end)
+
+-- [[ 🏆 OTOMATİK RANKED 1V1 SIRAYA GİRME SİSTEMİ ]] --
+
+_G.AutoRankedQueue = false
+
+-- Oyuna göre RemoteEvent adını otomatik bulmaya çalışan veya genel kuyruğu tetikleyen fonksiyon
+local function JoinRanked1v1()
+    -- NOT: Her oyunun Ranked sisteminin 'RemoteEvent' adı farklıdır.
+    -- Aşağıdaki mantık, yaygın oyunlardaki (Rivals, Bedwars vb.) genel eşleşme motorlarını tetikler.
+    
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    
+    -- Senaryo A: Rivals tarzı oyunlar için Matchmaking tetikleyicisi
+    local matchRemote = ReplicatedStorage:FindFirstChild("JoinQueue", true) or ReplicatedStorage:FindFirstChild("QueueRemote", true)
+    if matchRemote and matchRemote:IsA("RemoteEvent") then
+        -- 1v1 Ranked modunu hedefleyerek sunucuya sinyal gönderir
+        matchRemote:FireServer("Ranked", "1v1") 
+        return
+    end
+
+    -- Senaryo B: Teleport Service kullanan lobiler için doğrudan ışınlanma denemesi
+    -- (Eğer oyun seni başka bir alt sunucuya atarak 1v1 başlatıyorsa)
+    local TeleportService = game:GetService("TeleportService")
+    -- Oyun içi lobi butonuna sanal tıklama simülasyonu
+    local PlayerGui = LP:WaitForChild("PlayerGui")
+    -- Menüdeki 'Ranked', '1v1' veya 'Queue' metni geçen butonları arar ve otomatik tıklar
+    for _, guiElement in pairs(PlayerGui:GetDescendants()) do
+        if guiElement:IsA("TextButton") and guiElement.Visible then
+            local text = guiElement.Text:lower()
+            if (text:find("ranked") or text:find("1v1") or text:find("queue") or text:find("sıra")) and not text:find("cancel") then
+                -- Butona tıklama fonksiyonlarını tetikle
+                firesignal(guiElement.MouseButton1Click)
+                firesignal(guiElement.MouseButton1Down)
+                break
+            end
+        end
+    end
+end
+
+-- GUI Sekmesine Toggle Düğmesini Ekleme (Tab1 veya ana sekme adını yazabilirsin)
+AddToggle(Tab1, "Oto Ranked 1v1 Sıra", false, function(v)
+    _G.AutoRankedQueue = v
+    if v then
+        print("[Wex] Otomatik Ranked sırası aktif edildi.")
+    end
+end)
+
+-- Arka Planda Lobide Olup Olmadığını Kontrol Eden Döngü
+task.spawn(function()
+    while task.wait(3) do -- Her 3 saniyede bir kontrol et (Sunucuyu yormamak için)
+        if _G.AutoRankedQueue then
+            -- Karakterin hayatta olduğunu ve lobide hareketsiz/sırada olmadığını kontrol etme mantığı
+            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                
+                -- Eğer oyun bittiyse ve ekranda "Yeniden Oyna" (Play Again) butonu çıktıysa ona basar
+                local PlayerGui = LP:WaitForChild("PlayerGui")
+                local foundPlayAgain = false
+                
+                for _, btn in pairs(PlayerGui:GetDescendants()) do
+                    if btn:IsA("TextButton") and btn.Visible then
+                        local btnText = btn.Text:lower()
+                        if btnText:find("again") or btnText:find("tekrar") or btnText:find("requeue") then
+                            firesignal(btn.MouseButton1Click)
+                            foundPlayAgain = true
+                            break
+                        end
+                    end
+                end
+                
+                -- Eğer ekranda bir bitiş butonu yoksa doğrudan ana sıraya girmeyi dener
+                if not foundPlayAgain then
+                    JoinRanked1v1()
+                end
+            end
+        end
+    end
+end)
